@@ -8,6 +8,7 @@ from datetime import datetime
 from colorama import Fore, Style, init
 from sympy import symbols
 
+# Gerekli kütüphanelerin kurulumu
 required_libraries = ["colorama", "sympy"]
 for library in required_libraries:
     try:
@@ -15,14 +16,18 @@ for library in required_libraries:
     except ImportError:
         subprocess.check_call([sys.executable, "-m", "pip", "install", library])
 
+# Renkli terminal başlatma
 init(autoreset=True)
 
+# DNA haritası
 DNA_MAP = {0: 'A', 1: 'C', 2: 'G', 3: 'T'}
 
+# Belirtilen seed'e göre polinom üretimi
 def polynomial_iteration(seed, degree=3):
     x = symbols('x')
     return [x**i + seed for i in range(degree)]
 
+# Lagrange enterpolasyon fonksiyonu
 def lagrange_interpolation(points):
     x = symbols('x')
     n = len(points)
@@ -37,9 +42,7 @@ def lagrange_interpolation(points):
         polynomial += term
     return polynomial
 
-def generate_long_random_key(length=64):
-    return ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789', k=length))
-
+# Base-4’e çevirme
 def to_base_4(value):
     result = ""
     while value > 0:
@@ -47,37 +50,73 @@ def to_base_4(value):
         value //= 4
     return result.zfill(4)
 
+# Anahtar üretimi (polinom ve lagrange katkılı)
 def generate_key(open_key, timestamp):
+    # 1. Seed hesapla
     seed = sum(ord(char) for char in open_key) + sum(timestamp)
+
+    # 2. Polinomlar ve enterpolasyon
     polynomials = polynomial_iteration(seed)
     points = [(i, p.subs('x', i)) for i, p in enumerate(polynomials)]
-    interpolation = lagrange_interpolation(points)
+    interpolation_poly = lagrange_interpolation(points)
 
+    # 3. Zamanı formatla
     day, month, year, hour, minute = timestamp
     formatted_time = [day, month, year % 100, year // 100, hour, minute]
+
+    # 4. ASCII değerleri al
     ascii_values = [ord(char) for char in open_key]
-    combined = [(ascii_values[i % len(ascii_values)] + formatted_time[i % len(formatted_time)]) for i in range(len(ascii_values))]
+
+    # 5. Lagrange katkısı: pozisyona göre hesapla
+    lagrange_modifiers = [int(interpolation_poly.subs('x', i)) % 50 for i in range(len(ascii_values))]
+
+    # 6. Üçlü birleşim: ASCII + zaman + lagrange
+    combined = [
+        ascii_values[i % len(ascii_values)] +
+        formatted_time[i % len(formatted_time)] +
+        lagrange_modifiers[i % len(lagrange_modifiers)]
+        for i in range(len(ascii_values))
+    ]
+
+    # 7. Base-4 çevir
     base_4_values = [to_base_4(value) for value in combined]
+
+    # 8. DNA harflerine çevir
     dna_sequence = ''.join(DNA_MAP[int(digit)] for value in base_4_values for digit in value)
+
+    # 9. Kodonlara böl
     codons = [dna_sequence[i:i+3] for i in range(0, len(dna_sequence), 3)]
+
+    # 10. ASCII toplamı %100 → Anahtar
     return [sum(ord(char) for char in codon) % 100 for codon in codons]
 
+# Rastgele IV üretimi
 def generate_iv(length=16):
     return ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789', k=length))
 
+# XOR tabanlı şifreleme
 def encrypt(plaintext, key):
     iv = generate_iv(16)
-    encrypted = ''.join(chr(ord(char) ^ key[i % len(key)] ^ ord(iv[i % len(iv)])) for i, char in enumerate(plaintext))
+    encrypted = ''.join(
+        chr(ord(char) ^ key[i % len(key)] ^ ord(iv[i % len(iv)]))
+        for i, char in enumerate(plaintext)
+    )
     return base64.urlsafe_b64encode(f"{iv}:{encrypted}".encode()).decode()
 
+# XOR tabanlı çözme
 def decrypt(ciphertext, key):
     decoded_data = base64.urlsafe_b64decode(ciphertext).decode()
     iv, encrypted_text = decoded_data.split(':', 1)
-    return ''.join(chr(ord(char) ^ key[i % len(key)] ^ ord(iv[i % len(iv)])) for i, char in enumerate(encrypted_text))
+    return ''.join(
+        chr(ord(char) ^ key[i % len(key)] ^ ord(iv[i % len(iv)]))
+        for i, char in enumerate(encrypted_text)
+    )
 
+# Konsol temizleme
 def clear_console():
     os.system('cls' if os.name == 'nt' else 'clear')
 
+# Karşılama ekranı
 def welcome_screen(language):
     clear_console()
     if language == "en":
@@ -89,10 +128,12 @@ def welcome_screen(language):
         print(f"{Fore.LIGHTRED_EX}{Style.BRIGHT}         GENETİK ŞİFRELEME ALGORİTMASI")
         print(f"{Fore.LIGHTYELLOW_EX}{Style.BRIGHT}" + "-"*50)
 
+# Sistem saati alma
 def get_system_time():
     now = datetime.now()
     return now.day, now.month, now.year, now.hour, now.minute
 
+# Ana uygulama
 def main():
     print("1: English")
     print("2: Türkçe")
@@ -148,5 +189,6 @@ def main():
 
         input(Fore.LIGHTCYAN_EX + continue_prompt)
 
+# Çalıştır
 if __name__ == "__main__":
     main()
