@@ -95,18 +95,34 @@ def generate_iv(length=16):
     return ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789', k=length))
 
 # XOR tabanlı şifreleme
-def encrypt(plaintext, key):
+def encrypt(plaintext, key, timestamp):
     iv = generate_iv(16)
+    # Timestamp'i string'e çevir (örneğin: "day:month:year:hour:minute")
+    timestamp_str = ':'.join(map(str, timestamp))
+    # Plaintext'i anahtar ve IV ile XOR'la
     encrypted = ''.join(
         chr(ord(char) ^ key[i % len(key)] ^ ord(iv[i % len(iv)]))
         for i, char in enumerate(plaintext)
     )
-    return base64.urlsafe_b64encode(f"{iv}:{encrypted}".encode()).decode()
+    # Timestamp, IV ve şifrelenmiş metni birleştir
+    data_to_encode = f"{timestamp_str}:{iv}:{encrypted}"
+    # Base64 ile encode et
+    return base64.urlsafe_b64encode(data_to_encode.encode()).decode()
 
 # XOR tabanlı çözme
-def decrypt(ciphertext, key):
+def decrypt(ciphertext, open_key):
+    # Base64 ile decode et
     decoded_data = base64.urlsafe_b64decode(ciphertext).decode()
-    iv, encrypted_text = decoded_data.split(':', 1)
+    # Veriyi timestamp, IV ve encrypted_text olarak ayır
+    parts = decoded_data.split(':', 6)  # 6 çünkü timestamp 5 parça + IV + encrypted
+    timestamp_str = ':'.join(parts[:5])  # İlk 5 parça timestamp
+    iv = parts[5]
+    encrypted_text = parts[6]
+    # Timestamp'i tuple'a çevir
+    timestamp = tuple(map(int, timestamp_str.split(':')))
+    # Aynı timestamp ile anahtarı yeniden üret
+    key = generate_key(open_key, timestamp)
+    # Şifreyi çöz
     return ''.join(
         chr(ord(char) ^ key[i % len(key)] ^ ord(iv[i % len(iv)]))
         for i, char in enumerate(encrypted_text)
@@ -180,11 +196,11 @@ def main():
 
         if action == '1':
             plaintext = input(text_encrypt_prompt)
-            encrypted_text = encrypt(plaintext, key)
+            encrypted_text = encrypt(plaintext, key, timestamp)
             print(Fore.LIGHTGREEN_EX + encrypted_message + encrypted_text)
         elif action == '2':
             ciphertext = input(text_decrypt_prompt)
-            decrypted_text = decrypt(ciphertext, key)
+            decrypted_text = decrypt(ciphertext, open_key)
             print(Fore.LIGHTGREEN_EX + decrypted_message + decrypted_text)
 
         input(Fore.LIGHTCYAN_EX + continue_prompt)
