@@ -6,10 +6,9 @@ import base64
 import random
 from datetime import datetime
 from colorama import Fore, Style, init
-from sympy import symbols
 
 # Gerekli kütüphanelerin kurulumu
-required_libraries = ["colorama", "sympy"]
+required_libraries = ["colorama"]
 for library in required_libraries:
     try:
         __import__(library)
@@ -22,26 +21,6 @@ init(autoreset=True)
 # DNA haritası
 DNA_MAP = {0: 'A', 1: 'C', 2: 'G', 3: 'T'}
 
-# Belirtilen seed'e göre polinom üretimi
-def polynomial_iteration(seed, degree=3):
-    x = symbols('x')
-    return [x**i + seed for i in range(degree)]
-
-# Lagrange enterpolasyon fonksiyonu
-def lagrange_interpolation(points):
-    x = symbols('x')
-    n = len(points)
-    polynomial = 0
-    for i in range(n):
-        xi, yi = points[i]
-        term = yi
-        for j in range(n):
-            if i != j:
-                xj = points[j][0]
-                term *= (x - xj) / (xi - xj)
-        polynomial += term
-    return polynomial
-
 # Base-4’e çevirme
 def to_base_4(value):
     result = ""
@@ -50,83 +29,89 @@ def to_base_4(value):
         value //= 4
     return result.zfill(4)
 
-# Anahtar üretimi (polinom ve lagrange katkılı)
+# Anahtar üretimi
 def generate_key(open_key, timestamp):
-    # 1. Seed hesapla
-    seed = sum(ord(char) for char in open_key) + sum(timestamp)
-
-    # 2. Polinomlar ve enterpolasyon
-    polynomials = polynomial_iteration(seed)
-    points = [(i, p.subs('x', i)) for i, p in enumerate(polynomials)]
-    interpolation_poly = lagrange_interpolation(points)
-
-    # 3. Zamanı formatla
+    print(f"Open Key: {open_key}")
+    print(f"Timestamp: {timestamp}")
+    
+    # 1. Açık anahtarın ASCII değerlerini al
+    ascii_values = [ord(char) for char in open_key]
+    print(f"ASCII Values: {ascii_values}")
+    
+    # 2. Zamanı formatla
     day, month, year, hour, minute = timestamp
     formatted_time = [day, month, year % 100, year // 100, hour, minute]
-
-    # 4. ASCII değerleri al
-    ascii_values = [ord(char) for char in open_key]
-
-    # 5. Lagrange katkısı: pozisyona göre hesapla
-    lagrange_modifiers = [int(interpolation_poly.subs('x', i)) % 50 for i in range(len(ascii_values))]
-
-    # 6. Üçlü birleşim: ASCII + zaman + lagrange
+    print(f"Formatted Time: {formatted_time}")
+    
+    # 3. ASCII ve zamanı birleştir
     combined = [
         ascii_values[i % len(ascii_values)] +
-        formatted_time[i % len(formatted_time)] +
-        lagrange_modifiers[i % len(lagrange_modifiers)]
+        formatted_time[i % len(formatted_time)]
         for i in range(len(ascii_values))
     ]
-
-    # 7. Base-4 çevir
+    print(f"Combined Values: {combined}")
+    
+    # 4. Base-4’e çevir
     base_4_values = [to_base_4(value) for value in combined]
-
-    # 8. DNA harflerine çevir
+    print(f"Base-4 Values: {base_4_values}")
+    
+    # 5. DNA harflerine çevir
     dna_sequence = ''.join(DNA_MAP[int(digit)] for value in base_4_values for digit in value)
-
-    # 9. Kodonlara böl
+    print(f"DNA Sequence: {dna_sequence}")
+    
+    # 6. Kodonlara böl
     codons = [dna_sequence[i:i+3] for i in range(0, len(dna_sequence), 3)]
-
-    # 10. ASCII toplamı %100 → Anahtar
-    return [sum(ord(char) for char in codon) % 100 for codon in codons]
+    print(f"Codons: {codons}")
+    
+    # 7. ASCII toplamı %100 → Anahtar
+    key = [sum(ord(char) for char in codon) % 100 for codon in codons]
+    print(f"Generated Key: {key}")
+    return key
 
 # Rastgele IV üretimi
 def generate_iv(length=16):
-    return ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789', k=length))
+    iv = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789', k=length))
+    print(f"Generated IV: {iv}")
+    return iv
 
 # XOR tabanlı şifreleme
 def encrypt(plaintext, key, timestamp):
+    print(f"Plaintext: {plaintext}")
     iv = generate_iv(16)
-    # Timestamp'i string'e çevir (örneğin: "day:month:year:hour:minute")
     timestamp_str = ':'.join(map(str, timestamp))
-    # Plaintext'i anahtar ve IV ile XOR'la
+    print(f"Timestamp String: {timestamp_str}")
     encrypted = ''.join(
         chr(ord(char) ^ key[i % len(key)] ^ ord(iv[i % len(iv)]))
         for i, char in enumerate(plaintext)
     )
-    # Timestamp, IV ve şifrelenmiş metni birleştir
+    print(f"Encrypted Text (before encoding): {encrypted}")
     data_to_encode = f"{timestamp_str}:{iv}:{encrypted}"
-    # Base64 ile encode et
-    return base64.urlsafe_b64encode(data_to_encode.encode()).decode()
+    print(f"Data to Encode: {data_to_encode}")
+    encoded = base64.urlsafe_b64encode(data_to_encode.encode()).decode()
+    print(f"Encoded Encrypted Text: {encoded}")
+    return encoded
 
 # XOR tabanlı çözme
 def decrypt(ciphertext, open_key):
-    # Base64 ile decode et
+    print(f"Ciphertext: {ciphertext}")
     decoded_data = base64.urlsafe_b64decode(ciphertext).decode()
-    # Veriyi timestamp, IV ve encrypted_text olarak ayır
-    parts = decoded_data.split(':', 6)  # 6 çünkü timestamp 5 parça + IV + encrypted
-    timestamp_str = ':'.join(parts[:5])  # İlk 5 parça timestamp
+    print(f"Decoded Data: {decoded_data}")
+    parts = decoded_data.split(':', 6)
+    timestamp_str = ':'.join(parts[:5])
     iv = parts[5]
     encrypted_text = parts[6]
-    # Timestamp'i tuple'a çevir
+    print(f"Timestamp String: {timestamp_str}")
+    print(f"IV: {iv}")
+    print(f"Encrypted Text: {encrypted_text}")
     timestamp = tuple(map(int, timestamp_str.split(':')))
-    # Aynı timestamp ile anahtarı yeniden üret
+    print(f"Timestamp: {timestamp}")
     key = generate_key(open_key, timestamp)
-    # Şifreyi çöz
-    return ''.join(
+    decrypted = ''.join(
         chr(ord(char) ^ key[i % len(key)] ^ ord(iv[i % len(iv)]))
         for i, char in enumerate(encrypted_text)
     )
+    print(f"Decrypted Text: {decrypted}")
+    return decrypted
 
 # Konsol temizleme
 def clear_console():
