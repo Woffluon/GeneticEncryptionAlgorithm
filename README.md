@@ -113,21 +113,9 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 Distributed under the MIT License. See `LICENSE` for more information.
 
-## 📧 Contact
-
-Your Name - [@your_twitter](https://twitter.com/your_username) - email@example.com
-
-Project Link: [https://github.com/yourusername/GeneticEncryptionAlgorithm](https://github.com/yourusername/GeneticEncryptionAlgorithm)
-
 ## 🙏 Acknowledgments
 
 - [Python](https://www.python.org/)
 - [Tkinter](https://docs.python.org/3/library/tkinter.html)
 - [Colorama](https://pypi.org/project/colorama/)
 - [Shields.io](https://shields.io/)
-
----
-
-<div align="center">
-  Made with ❤️ using Python
-</div>
